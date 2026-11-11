@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <div class="flex gap-4 max-w-2xl mx-auto">
+            <input type="text" 
+                   id="search-input" 
+                   placeholder="Search for movies..." 
+                   class="w-full px-4 py-3 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-netflix focus:outline-none">
+            <button id="search-button" 
+                    class="px-6 py-3 bg-netflix hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </button>
+        </div>
+    </div>
+    <div id="search-results" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Search results will be dynamically added here -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const DEFAULT_POSTER = "https://via.placeholder.com/300x450.png?text=No+Poster+Available";
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const searchResults = document.getElementById('search-results');
+        let timeoutId;
+
+        const performSearch = async (query) => {
+            try {
+                searchResults.innerHTML = '<div class="col-span-full text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-netflix"></div></div>';
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                console.error('Error searching movies:', error);
+                searchResults.innerHTML = '<p class="col-span-full text-center text-red-500">Error searching movies. Please try again.</p>';
+            }
+        };
+
+        const displayResults = (movies) => {
+            if (!movies || movies.length === 0) {
+                searchResults.innerHTML = '<p class="col-span-full text-center text-gray-400">No movies found</p>';
+                return;
+            }
+
+            searchResults.innerHTML = movies.map(movie => `
+                <div class="bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                    <div class="relative aspect-[2/3]">
+                        <img src="${movie.poster !== 'N/A' ? movie.poster : DEFAULT_POSTER}" 
+                             alt="${movie.title}"
+                             class="w-full h-full object-cover"
+                             onerror="this.src='${DEFAULT_POSTER}'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-lg font-bold text-white">${movie.title}</h3>
+                            <span class="text-sm text-gray-400">${movie.year || 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-yellow-400">⭐ ${movie.rating || 'N/A'}</span>
+                            <span class="text-sm text-gray-400">${movie.runtime || ''}</span>
+                        </div>
+                        <p class="text-sm text-netflix mb-2">${movie.genre || ''}</p>
+                        <p class="text-sm text-gray-300 mb-4 line-clamp-2">${movie.plot || ''}</p>
+                        <div class="flex justify-between items-center">
+                            <div class="flex gap-2">
+                                <button onclick="addToFavorites('${movie.id}')" 
+                                        class="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                                        title="Add to Favorites">
+                                    <i class="fas fa-heart text-netflix"></i>
+                                </button>
+                                <button onclick="addToWatchlist('${movie.id}')" 
+                                        class="p-2 hover:bg-gray-700 rounded-full transition-colors"
+                                        title="Add to Watch Later">
+                                    <i class="fas fa-clock text-blue-400"></i>
+                                </button>
+                            </div>
+                            <button onclick="showMovieDetails('${movie.id}')" 
+                                    class="text-sm text-netflix hover:text-red-400 transition-colors">
+                                More Info
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        // Debounced search
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(timeoutId);
+            const query = e.target.value.trim();
+            
+            if (query.length >= 2) {
+                timeoutId = setTimeout(() => performSearch(query), 500);
+            } else {
+                searchResults.innerHTML = '';
+            }
+        });
+
+        searchButton.addEventListener('click', () => {
+            const query = searchInput.value.trim();
+            if (query.length >= 2) {
+                performSearch(query);
+            }
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim();
+                if (query.length >= 2) {
+                    performSearch(query);
+                }
+            }
+        });
+
+        window.addToFavorites = async (movieId) => {
+            try {
+                const response = await fetch('/api/favorite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ movie_id: movieId })
+                });
+                if (response.ok) {
+                    showToast('Added to favorites!');
+                }
+            } catch (error) {
+                console.error('Error adding to favorites:', error);
+                showToast('Error adding to favorites', true);
+            }
+        };
+
+        window.addToWatchlist = async (movieId) => {
+            try {
+                const response = await fetch('/api/watchlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ movie_id: movieId })
+                });
+                if (response.ok) {
+                    showToast('Added to watch later!');
+                }
+            } catch (error) {
+                console.error('Error adding to watch later:', error);
+                showToast('Error adding to watch later', true);
+            }
+        };
+
+        const showToast = (message, isError = false) => {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg ${isError ? 'bg-red-500' : 'bg-green-500'} text-white shadow-lg transform transition-all duration-300 translate-y-20 opacity-0`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-20', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+    });
+</script>
+{% endblock %} 

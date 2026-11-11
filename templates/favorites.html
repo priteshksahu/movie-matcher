@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <h1 class="text-3xl font-bold mb-8 text-white">My Favorites</h1>
+    <div id="favorites-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Favorites will be loaded here -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const DEFAULT_POSTER = "https://via.placeholder.com/300x450.png?text=No+Poster+Available";
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const favoritesGrid = document.getElementById('favorites-grid');
+
+        const loadFavorites = async () => {
+            try {
+                favoritesGrid.innerHTML = '<div class="col-span-full text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-netflix"></div></div>';
+                const response = await fetch('/api/favorites');
+                const favorites = await response.json();
+                displayFavorites(favorites);
+            } catch (error) {
+                console.error('Error loading favorites:', error);
+                favoritesGrid.innerHTML = '<p class="col-span-full text-center text-red-500">Error loading favorites. Please try again.</p>';
+            }
+        };
+
+        const displayFavorites = (movies) => {
+            if (!movies || movies.length === 0) {
+                favoritesGrid.innerHTML = '<p class="col-span-full text-center text-gray-400">No favorites added yet</p>';
+                return;
+            }
+
+            favoritesGrid.innerHTML = movies.map(movie => `
+                <div class="bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                    <div class="relative aspect-[2/3]">
+                        <img src="${movie.poster !== 'N/A' ? movie.poster : DEFAULT_POSTER}" 
+                             alt="${movie.title}"
+                             class="w-full h-full object-cover"
+                             onerror="this.src='${DEFAULT_POSTER}'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-lg font-bold text-white">${movie.title}</h3>
+                            <span class="text-sm text-gray-400">${movie.year || 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-yellow-400">⭐ ${movie.rating || 'N/A'}</span>
+                        </div>
+                        <p class="text-sm text-netflix mb-2">${movie.genre || ''}</p>
+                        <p class="text-sm text-gray-300 mb-4 line-clamp-2">${movie.plot || ''}</p>
+                        <div class="flex justify-end">
+                            <button onclick="removeFromFavorites('${movie.id}')" 
+                                    class="p-2 hover:bg-gray-700 rounded-full transition-colors text-red-500 hover:text-red-400"
+                                    title="Remove from Favorites">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.removeFromFavorites = async (movieId) => {
+            try {
+                const response = await fetch(`/api/favorite/${movieId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    loadFavorites();
+                    showToast('Removed from favorites');
+                }
+            } catch (error) {
+                console.error('Error removing from favorites:', error);
+                showToast('Error removing from favorites', true);
+            }
+        };
+
+        const showToast = (message, isError = false) => {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg ${isError ? 'bg-red-500' : 'bg-green-500'} text-white shadow-lg transform transition-all duration-300 translate-y-20 opacity-0`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-20', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        loadFavorites();
+    });
+</script>
+{% endblock %} 

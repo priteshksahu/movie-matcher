@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Categories Filter -->
+    <div class="mb-8">
+        <div class="flex flex-wrap gap-4 justify-center">
+            <button class="category-btn active" data-category="trending">
+                <i class="fas fa-fire"></i> Trending
+            </button>
+            <button class="category-btn" data-category="latest">
+                <i class="fas fa-clock"></i> Latest
+            </button>
+            <button class="category-btn" data-category="action">
+                <i class="fas fa-explosion"></i> Action
+            </button>
+            <button class="category-btn" data-category="drama">
+                <i class="fas fa-masks-theater"></i> Drama
+            </button>
+            <button class="category-btn" data-category="comedy">
+                <i class="fas fa-face-laugh"></i> Comedy
+            </button>
+        </div>
+    </div>
+
+    <!-- Movies Grid -->
+    <div id="movies-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Movies will be loaded here -->
+    </div>
+
+    <!-- Movie Details Modal -->
+    <div id="movie-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden overflow-y-auto">
+        <div class="bg-gray-900 rounded-xl max-w-4xl w-full mx-4 my-8 relative">
+            <!-- Close button moved outside modal-content -->
+            <button onclick="closeModal()" class="absolute right-4 top-4 text-white hover:text-netflix z-10 w-10 h-10 flex items-center justify-center bg-gray-800 rounded-full">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <div id="modal-content" class="max-h-[90vh] overflow-y-auto">
+                <!-- Modal content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<style>
+    .category-btn {
+        @apply px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2;
+    }
+    .category-btn.active {
+        @apply bg-netflix text-white;
+    }
+</style>
+
+<script>
+    const DEFAULT_POSTER = "https://via.placeholder.com/300x450.png?text=No+Poster+Available";
+    const moviesGrid = document.getElementById('movies-grid');
+    const movieModal = document.getElementById('movie-modal');
+    const modalContent = document.getElementById('modal-content');
+    let currentCategory = 'trending';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Load initial category
+        await loadMovies(currentCategory);
+
+        // Setup category buttons
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentCategory = btn.dataset.category;
+                await loadMovies(currentCategory);
+            });
+        });
+
+        // Close modal when clicking outside
+        movieModal.addEventListener('click', (e) => {
+            if (e.target === movieModal) {
+                closeModal();
+            }
+        });
+    });
+
+    async function loadMovies(category) {
+        try {
+            moviesGrid.innerHTML = '<div class="col-span-full text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-netflix"></div></div>';
+            
+            const response = await fetch(`/api/movies/category/${category}`);
+            const movies = await response.json();
+            
+            if (!movies || movies.length === 0) {
+                moviesGrid.innerHTML = '<p class="col-span-full text-center text-gray-400">No movies found</p>';
+                return;
+            }
+
+            moviesGrid.innerHTML = movies.map(movie => `
+                <div class="bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer"
+                     onclick="showMovieDetails('${movie.id}')">
+                    <div class="relative aspect-[2/3]">
+                        <img src="${movie.poster !== 'N/A' ? movie.poster : DEFAULT_POSTER}" 
+                             alt="${movie.title}"
+                             class="w-full h-full object-cover"
+                             onerror="this.src='${DEFAULT_POSTER}'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-lg font-bold text-white">${movie.title}</h3>
+                            <span class="text-sm text-gray-400">${movie.year || 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-yellow-400">⭐ ${movie.rating || 'N/A'}</span>
+                            <span class="text-sm text-gray-400">${movie.runtime || ''}</span>
+                        </div>
+                        <p class="text-sm text-netflix mb-2">${movie.genre || ''}</p>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading movies:', error);
+            moviesGrid.innerHTML = '<p class="col-span-full text-center text-red-500">Error loading movies. Please try again.</p>';
+        }
+    }
+
+    async function showMovieDetails(movieId) {
+        try {
+            const response = await fetch(`/api/movie/${movieId}`);
+            const movie = await response.json();
+            
+            modalContent.innerHTML = `
+                <div>
+                    <div class="relative h-[400px] sm:h-[500px]">
+                        <img src="${movie.Poster !== 'N/A' ? movie.Poster : DEFAULT_POSTER}" 
+                             alt="${movie.Title}"
+                             class="w-full h-full object-cover"
+                             onerror="this.src='${DEFAULT_POSTER}'">
+                        <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
+                    </div>
+                    <div class="p-6 -mt-40 relative">
+                        <div class="backdrop-blur-sm bg-gray-900/70 rounded-xl p-6">
+                            <h2 class="text-3xl font-bold text-white mb-2">${movie.Title}</h2>
+                            <div class="flex flex-wrap items-center gap-4 text-sm text-gray-300 mb-4">
+                                <span class="px-2 py-1 bg-gray-800 rounded">${movie.Year}</span>
+                                <span class="px-2 py-1 bg-gray-800 rounded">${movie.Runtime}</span>
+                                <span class="px-2 py-1 bg-gray-800 rounded">${movie.Rated}</span>
+                                <span class="px-2 py-1 bg-gray-800 rounded text-yellow-400">⭐ ${movie.imdbRating}/10</span>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex flex-wrap gap-2">
+                                    ${movie.Genre.split(',').map(genre => 
+                                        `<span class="px-3 py-1 bg-netflix/20 text-netflix rounded-full text-sm">${genre.trim()}</span>`
+                                    ).join('')}
+                                </div>
+                                <p class="text-gray-300 text-lg leading-relaxed">${movie.Plot}</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <p class="text-gray-400 mb-1">Director</p>
+                                            <p class="text-white">${movie.Director}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-gray-400 mb-1">Writers</p>
+                                            <p class="text-white">${movie.Writer}</p>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <p class="text-gray-400 mb-1">Stars</p>
+                                            <p class="text-white">${movie.Actors}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-gray-400 mb-1">Awards</p>
+                                            <p class="text-white">${movie.Awards}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-6 pt-6 border-t border-gray-700/50">
+                                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                        <div>
+                                            <p class="text-gray-400 mb-2">Available on:</p>
+                                            <div class="flex gap-4 text-2xl">
+                                                <i class="fab fa-netflix text-netflix hover:scale-110 transition-transform cursor-pointer"></i>
+                                                <i class="fab fa-amazon text-prime hover:scale-110 transition-transform cursor-pointer"></i>
+                                                <i class="fas fa-play-circle text-hulu hover:scale-110 transition-transform cursor-pointer"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button onclick="addToFavorites('${movieId}')" 
+                                                    class="px-4 py-2 bg-netflix hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2">
+                                                <i class="fas fa-heart"></i> Add to Favorites
+                                            </button>
+                                            <button onclick="addToWatchlist('${movieId}')" 
+                                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2">
+                                                <i class="fas fa-clock"></i> Watch Later
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            movieModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        } catch (error) {
+            console.error('Error loading movie details:', error);
+            showToast('Error loading movie details', true);
+        }
+    }
+
+    function closeModal() {
+        movieModal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    // Add keyboard support for closing modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
+</script>
+{% endblock %} 

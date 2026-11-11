@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Recommender</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        netflix: '#e50914',
+                        prime: '#00a8e1',
+                        hulu: '#1ce783',
+                        hbo: '#5822b4',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <nav class="bg-gray-800 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="{{ url_for('home') }}" class="text-netflix text-2xl font-bold">MovieMatcher</a>
+                <div class="flex items-center space-x-8">
+                    <div class="flex space-x-8">
+                        <a href="{{ url_for('home') }}" class="hover:text-netflix transition-colors"><i class="fas fa-home"></i> Home</a>
+                        <a href="{{ url_for('movies_page') }}" class="hover:text-netflix transition-colors"><i class="fas fa-film"></i> Movies</a>
+                        <a href="{{ url_for('search') }}" class="hover:text-netflix transition-colors"><i class="fas fa-search"></i> Search</a>
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('favorites') }}" class="hover:text-netflix transition-colors"><i class="fas fa-heart"></i> Favorites</a>
+                            <a href="{{ url_for('watchlist') }}" class="hover:text-netflix transition-colors"><i class="fas fa-clock"></i> Watch Later</a>
+                            <a href="{{ url_for('logout') }}" class="hover:text-netflix transition-colors"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        {% else %}
+                            <a href="{{ url_for('login') }}" class="hover:text-netflix transition-colors"><i class="fas fa-sign-in-alt"></i> Login</a>
+                            <a href="{{ url_for('register') }}" class="hover:text-netflix transition-colors"><i class="fas fa-user-plus"></i> Register</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html> 

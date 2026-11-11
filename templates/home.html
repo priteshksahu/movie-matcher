@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="swipe-container max-w-md mx-auto">
+    <div id="card-stack" class="relative h-[600px]">
+        <!-- Cards will be dynamically added here -->
+    </div>
+    <div class="flex justify-center gap-6 mt-6">
+        <button id="skip-button" class="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center text-2xl">
+            <i class="fas fa-times"></i>
+        </button>
+        <button id="like-button" class="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 transition-colors flex items-center justify-center text-2xl">
+            <i class="fas fa-heart"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const DEFAULT_POSTER = "https://via.placeholder.com/300x450.png?text=No+Poster+Available";
+
+    class MovieSwiper {
+        constructor() {
+            this.currentCard = null;
+            this.startX = 0;
+            this.currentX = 0;
+            this.movies = [];
+            this.currentIndex = 0;
+            this.isLoading = false;
+
+            this.cardStack = document.getElementById('card-stack');
+            this.skipButton = document.getElementById('skip-button');
+            this.likeButton = document.getElementById('like-button');
+
+            this.init();
+        }
+
+        async init() {
+            await this.fetchMovies();
+            this.setupEventListeners();
+            this.showNextCard();
+        }
+
+        async fetchMovies() {
+            try {
+                const response = await fetch('/api/movies');
+                const data = await response.json();
+                const shuffled = data.sort(() => Math.random() - 0.5);
+                this.movies = this.movies.concat(shuffled);
+            } catch (error) {
+                console.error('Error fetching movies:', error);
+            }
+        }
+
+        setupEventListeners() {
+            this.skipButton.addEventListener('click', () => this.handleSwipe('left'));
+            this.likeButton.addEventListener('click', () => this.handleSwipe('right'));
+
+            this.cardStack.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+            this.cardStack.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+            this.cardStack.addEventListener('touchend', () => this.handleTouchEnd());
+        }
+
+        createMovieCard(movie) {
+            const card = document.createElement('div');
+            card.className = 'absolute w-full h-full';
+            
+            const streamingIcons = {
+                'netflix': '<i class="fab fa-netflix text-netflix"></i>',
+                'prime': '<i class="fab fa-amazon text-prime"></i>',
+                'hulu': '<i class="fas fa-play-circle text-hulu"></i>',
+                'hbo': '<i class="fas fa-film text-hbo"></i>'
+            };
+
+            const streamingHtml = movie.streaming
+                .map(platform => `
+                    <span class="platform-icon" title="${platform.toUpperCase()}">
+                        ${streamingIcons[platform] || '<i class="fas fa-play"></i>'}
+                    </span>
+                `).join('');
+
+            card.innerHTML = `
+                <div class="w-full h-full bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
+                    <div class="relative h-2/3">
+                        <img src="${movie.poster !== 'N/A' ? movie.poster : DEFAULT_POSTER}" 
+                             alt="${movie.title}"
+                             class="w-full h-full object-cover"
+                             onerror="this.src='${DEFAULT_POSTER}'">
+                        <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-800 to-transparent"></div>
+                    </div>
+                    <div class="p-4 -mt-6 relative">
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-xl font-bold">${movie.title}</h3>
+                            <span class="text-gray-400">${movie.year || 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center gap-4 mt-2 text-sm text-gray-300">
+                            <span class="flex items-center gap-1">
+                                <i class="far fa-clock"></i> ${movie.runtime}
+                            </span>
+                            <span class="text-yellow-400 font-bold">⭐ ${movie.rating}/10</span>
+                            ${movie.metascore !== 'N/A' ? 
+                                `<span class="px-2 py-1 bg-green-600 rounded text-xs">Metascore: ${movie.metascore}</span>` : ''}
+                        </div>
+                        <p class="text-sm text-netflix mt-2">${movie.genre}</p>
+                        <p class="text-sm text-gray-300 mt-2 line-clamp-2">${movie.plot}</p>
+                        <div class="mt-3 text-sm text-gray-300">
+                            <p class="text-xs"><span class="text-gray-400">Director:</span> ${movie.director}</p>
+                            <p class="text-xs mt-1"><span class="text-gray-400">Starring:</span> ${movie.actors}</p>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-gray-700">
+                            <p class="text-xs text-gray-400 mb-2">Available on:</p>
+                            <div class="flex gap-4 text-2xl">
+                                ${streamingHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        async showNextCard() {
+            if (this.currentIndex >= this.movies.length - 3 && !this.isLoading) {
+                this.isLoading = true;
+                await this.fetchMovies();
+                this.isLoading = false;
+            }
+
+            if (this.currentIndex < this.movies.length) {
+                const movie = this.movies[this.currentIndex];
+                const card = this.createMovieCard(movie);
+                this.cardStack.appendChild(card);
+                this.currentCard = card;
+            }
+        }
+
+        handleSwipe(direction) {
+            if (!this.currentCard) return;
+
+            const swipeAnimation = this.currentCard.animate([
+                { transform: 'translateX(0) rotate(0)' },
+                { 
+                    transform: `translateX(${direction === 'left' ? '-' : ''}150%) rotate(${direction === 'left' ? '-' : ''}30deg)`
+                }
+            ], {
+                duration: 300,
+                easing: 'ease-out'
+            });
+
+            swipeAnimation.onfinish = () => {
+                this.currentCard.remove();
+                if (direction === 'right') {
+                    this.addToFavorites(this.movies[this.currentIndex].id);
+                }
+                this.currentIndex++;
+                this.showNextCard();
+            };
+        }
+
+        async addToFavorites(movieId) {
+            try {
+                await fetch('/api/favorite', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ movie_id: movieId })
+                });
+            } catch (error) {
+                console.error('Error adding to favorites:', error);
+            }
+        }
+
+        handleTouchStart(e) {
+            this.startX = e.touches[0].clientX;
+        }
+
+        handleTouchMove(e) {
+            if (!this.currentCard) return;
+            
+            this.currentX = e.touches[0].clientX;
+            const deltaX = this.currentX - this.startX;
+            const rotation = deltaX * 0.1;
+            
+            this.currentCard.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+        }
+
+        handleTouchEnd() {
+            if (!this.currentCard) return;
+
+            const deltaX = this.currentX - this.startX;
+            if (Math.abs(deltaX) > 100) {
+                this.handleSwipe(deltaX > 0 ? 'right' : 'left');
+            } else {
+                this.currentCard.style.transform = '';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        new MovieSwiper();
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="watchlist-container">
+    <h1>Watch Later</h1>
+    <div id="watchlist-grid" class="movie-grid">
+        <!-- Watch later items will be loaded here -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const DEFAULT_POSTER = "https://via.placeholder.com/300x450.png?text=No+Poster+Available";
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const watchlistGrid = document.getElementById('watchlist-grid');
+
+        const loadWatchlist = async () => {
+            try {
+                const response = await fetch('/api/watchlist');
+                const watchlist = await response.json();
+                displayWatchlist(watchlist);
+            } catch (error) {
+                console.error('Error loading watchlist:', error);
+                watchlistGrid.innerHTML = '<p class="error">Error loading watchlist. Please try again.</p>';
+            }
+        };
+
+        const displayWatchlist = (movies) => {
+            if (!movies || movies.length === 0) {
+                watchlistGrid.innerHTML = '<p class="no-results">No movies in watchlist</p>';
+                return;
+            }
+
+            watchlistGrid.innerHTML = movies.map(movie => `
+                <div class="movie-card">
+                    <img src="${movie.poster !== 'N/A' ? movie.poster : DEFAULT_POSTER}" 
+                         alt="${movie.title}"
+                         onerror="this.src='${DEFAULT_POSTER}'">
+                    <div class="movie-info">
+                        <h3>${movie.title}</h3>
+                        <p class="year">Year: ${movie.year || 'N/A'}</p>
+                        <p class="rating">Rating: ⭐ ${movie.rating || 'N/A'}</p>
+                        <p class="genre">${movie.genre || ''}</p>
+                        <div class="movie-actions">
+                            <button onclick="removeFromWatchlist('${movie.id}')" class="action-button" title="Remove from Watch Later">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.removeFromWatchlist = async (movieId) => {
+            try {
+                const response = await fetch(`/api/watchlist/${movieId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    loadWatchlist();
+                }
+            } catch (error) {
+                console.error('Error removing from watchlist:', error);
+                alert('Error removing from watchlist');
+            }
+        };
+
+        loadWatchlist();
+    });
+</script>
+{% endblock %} 
