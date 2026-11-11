@@ -4,9 +4,11 @@ A Flask movie recommendation app with search, favorites, and watchlist.
 
 ## Live demo
 
-After you connect this GitHub repo to [Render](https://render.com), the app is available at your `onrender.com` URL.
+Code: https://github.com/priteshksahu/movie-matcher
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+GitHub cannot host Flask itself. Use this button to deploy a free public URL on Render:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/priteshksahu/movie-matcher)
 
 ## Run locally
 
